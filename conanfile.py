@@ -2,7 +2,7 @@ from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMakeDeps, cmake_layout
 
 
-class BlustoneConan(ConanFile):
+class blustone(ConanFile):
     name = "blustone"
     version = "0.0.1"
     settings = "os", "compiler", "build_type", "arch"
@@ -38,23 +38,19 @@ class BlustoneConan(ConanFile):
         # networking stack. `without_cobalt` avoids the C++20 coroutine
         # library we do not use.
         self.requires("boost/1.91.0", options={"without_cobalt": True})
+
         self.requires("jemalloc/5.4.0")
 
         # REQUIRED, not optional. Beast's TLS stream is boost::asio::ssl,
         # which is an OpenSSL binding. Binance is wss:// only. The previous
         # manifest had this commented out, which cannot have linked.
-        self.requires("openssl/4.0.3")
-
-        # Ed25519 signing for `session.logon` and for the SBE stream API key
-        # header. crypto_sign_detached + sodium_bin2base64 cover the whole
-        # requirement with a smaller, harder-to-misuse API than OpenSSL EVP.
-        # self.requires("libsodium/1.0.22")
+        self.requires("openssl/4.1.0")
 
         # JSON for everything Binance sends as text: WebSocket API requests
         # and responses, subscription control frames, `serverShutdown`,
         # error frames, `exchangeInfo`. Use the On-Demand API with padded
         # buffers; it does not allocate per document.
-        # self.requires("simdjson/4.6.3")
+        self.requires("simdjson/5.0.5")
 
         # ==================================================================
         # DEV — tests, benchmarks, profiling. Never in a shipped binary.
@@ -63,15 +59,12 @@ class BlustoneConan(ConanFile):
         self.test_requires("benchmark/1.9.5")
 
         self.requires("flatbuffers/25.12.19")
-        self.requires("abseil/20260526.0")
+        self.requires("abseil/20260817.0")
         # self.requires("armadillo/15.2.6")
         # self.requires("eigen/5.0.1")
-
+        # self.requires("mlpack/4.4.0")
+        # self.requires("dlib/19.24.2")
         # self.requires("libpq/17.11")
-
-        # Low-Latency Logging: Quill
-        # Alternative TLS Stack: BoringSSL
-
 
     def layout(self):
         cmake_layout(self)

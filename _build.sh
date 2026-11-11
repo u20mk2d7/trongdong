@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== 2. Cleaning build directory ==="
+echo "=== Cleaning previous build ==="
 rm -rf build
 
-echo "=== 1. Formatting source ==="
-find ./cpp -type f \( \
+echo "=== Formatting source code ==="
+find ./ -type f \( \
     -name "*.cpp" -o \
     -name "*.h"   -o \
     -name "*.c"   -o \
@@ -14,22 +14,14 @@ find ./cpp -type f \( \
     -name "*.cc" \
 \) -exec clang-format -i --style=LLVM {} +
 
-find ./dsa -type f \( \
-    -name "*.cpp" -o \
-    -name "*.h"   -o \
-    -name "*.c"   -o \
-    -name "*.hpp" -o \
-    -name "*.cxx" -o \
-    -name "*.cc" \
-\) -exec clang-format -i --style=LLVM {} +
+echo "=== Installing Conan dependencies ==="
+conan install . --build=missing --profile=default
 
-echo "=== Installing Conan dependencies library ==="
-conan install . --build=missing --profile=release
-
-echo "=== Configuring CMake ==="
+echo "=== Configuring CMake via Preset ==="
 cmake --preset conan-release
 
-echo "=== Compiling ==="
-cmake --build --preset conan-release
+echo "=== Compiling Project ==="
+cmake --build --preset conan-release --parallel
 
-./build/Release/networking
+echo "=== Running Binary ==="
+./build/Release/kimngwu/dnse_client

@@ -1,9 +1,9 @@
+#include <cstring>
 #include <format>
 #include <iostream>
 #include <print>
 #include <string>
 #include <string_view>
-#include <cstring>
 
 // C Convention
 void TakeCharStar(const char *s) {
@@ -30,10 +30,8 @@ void AlreadyHasString_s(const std::string &s) {
 void AlreadyHasCharStar(const char *s) {
   TakeStringView(s); // GOOD: No copy; efficient!
   TakeString(s);     // BAD: Compiler will construct a temporary std::string
-                      // (potential heap allocation)
+                     // (potential heap allocation)
 }
-
-
 
 int main() {
   char characters[10] = "asdf";
@@ -56,7 +54,7 @@ int main() {
   char buffer[5]; // Can hold 4 chars + 1 null terminator
   // BAD: "hello" is 5 chars + '\0' = 6 bytes total!
   std::strcpy(buffer, "hello"); // Writes past the end of 'buffer'. Undefined
-                           // behavior / Stack corruption!
+                                // behavior / Stack corruption!
   std::print("buffer: {}", buffer);
 
   std::string s = "Hello Low Latency";

@@ -21,7 +21,9 @@ Checks: >
   -bugprone-easily-swappable-parameters,
   -llvm-header-guard,
   -llvm-include-order,
-  -misc-non-private-member-variables-in-classes
+  -misc-non-private-member-variables-in-classes,
+  -misc-include-cleaner
+
 
 WarningsAsErrors: >
   bugprone-*,
