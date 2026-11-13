@@ -16,7 +16,6 @@ int main() {
 
     ioc.run();
 
-
   } catch (std::exception &e) {
     return 1;
   }
