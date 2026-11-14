@@ -8,13 +8,12 @@
 int main() {
 
   try {
-    boost::asio::io_context ioc;
-    const auto client = std::make_shared<stock::gateway::websocket::WsClient>(
-        ioc, "echo.websocket.events", "80");
+	boost::asio::io_context& ioc;
+	boost::asio::ssl::context &sslCtx;
 
-    client->run();
+	auto wsClient = std::make_shared<stock::gateway::websocket::WsClient>(ioc,sslCtx);
 
-    ioc.run();
+	wsClient->connect("example.com", "80");
 
   } catch (std::exception &e) {
     return 1;
