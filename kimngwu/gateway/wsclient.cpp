@@ -1,8 +1,19 @@
 #include "wsclient.hpp"
 
+#include <boost/asio.hpp>
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/ssl.hpp>
+#include <boost/asio/ssl/error.hpp>
+#include <boost/beast.hpp>
+#include <boost/beast/core/stream_traits.hpp>
+#include <boost/beast/ssl.hpp>
+#include <boost/beast/websocket/option.hpp>
+#include <boost/beast/websocket/ssl.hpp>
 #include <chrono>
 #include <exception>
+#include <openssl/err.h>
 #include <openssl/ssl.h>
+#include <openssl/tls1.h>
 #include <print>
 
 namespace kimngwu::gateway {
@@ -12,7 +23,9 @@ WsClient::WsClient(boost::asio::io_context &ioc,
                    std::string port, MessageCallback onMessage)
     : Host_(std::move(host)), Port_(std::move(port)), SSLContext_(sslContext),
       Ws_(ioc, sslContext), OnMessage_(std::move(onMessage)) //
-{}
+{
+  Buffer_.reserve(65536);
+}
 
 boost::asio::awaitable<void> WsClient::run() {
   boost::asio::steady_timer retryTimer(Ws_.get_executor());
@@ -65,9 +78,43 @@ boost::asio::awaitable<void> WsClient::connectTCP() {
   // The next step is usually the WebSocket handshake.
 }
 
-boost::asio::awaitable<void> WsClient::handshakeTLS() {}
-boost::asio::awaitable<void> WsClient::handshakeWS() {}
-boost::asio::awaitable<void> WsClient::readLoop() {}
+boost::asio::awaitable<void> WsClient::handshakeTLS() {
+  if (!SSL_set_tlsext_host_name(Ws_.next_layer().native_handle(),
+                                Host_.c_str())) {
+
+    throw boost::beast::system_error(
+        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+                                 boost::asio::error::get_ssl_category()),
+        "SNI hostname setup failed");
+  }
+
+  co_await Ws_.next_layer().async_handshake(
+      boost::asio::ssl::stream_base::client, boost::asio::use_awaitable);
+  boost::beast::get_lowest_layer(Ws_).expires_never();
+}
+
+boost::asio::awaitable<void> WsClient::handshakeWS() {
+  boost::beast::websocket::permessage_deflate permessageDeflate;
+  permessageDeflate.client_enable = false; // Avoid CPU decompression latency
+
+  Ws_.set_option(permessageDeflate);
+  Ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
+      boost::beast::role_type::client));
+  co_await Ws_.async_handshake(Host_, Target_, boost::asio::use_awaitable);
+}
+
+boost::asio::awaitable<void> WsClient::readLoop() {
+  while (true) {
+    Buffer_.clear();
+    std::size_t byteRead =
+        co_await Ws_.async_read(Buffer_, boost::asio::use_awaitable);
+    if (byteRead > 0 && OnMessage_) {
+      boost::asio::const_buffer buf = Buffer_.data();
+      OnMessage_(std::span<const std::byte>(
+          static_cast<const std::byte *>(buf.data()), buf.size()));
+    }
+  }
+}
 
 void WsClient::resetStream() {
   // boost::beast::error_code ec;

@@ -59,11 +59,14 @@ private:
   std::string Host_;
   std::string Port_;
   std::string Target_;
+
   std::reference_wrapper<boost::asio::ssl::context> SSLContext_;
 
   WebSocketStream Ws_;
 
   MessageCallback OnMessage_;
+
+  boost::beast::flat_buffer Buffer_;
 
   // single-responsibility private coroutines
   boost::asio::awaitable<void> connectTCP();
