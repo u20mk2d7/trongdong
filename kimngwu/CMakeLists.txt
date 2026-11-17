@@ -9,25 +9,26 @@ find_package(benchmark REQUIRED)
 find_package(jemalloc REQUIRED)
 find_package(flatbuffers REQUIRED)
 
-add_executable(dnse_client
+add_executable(kimngwu
     main.cpp
     gateway/wsclient.cpp
+    gateway/connector.cpp
 )
 
-target_include_directories(dnse_client PRIVATE
+target_include_directories(kimngwu PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(dnse_client PRIVATE
+target_link_libraries(kimngwu PRIVATE
     Boost::boost
     OpenSSL::SSL
     OpenSSL::Crypto
     simdjson::simdjson
 )
 
-target_compile_features(dnse_client PRIVATE cxx_std_23)
+target_compile_features(kimngwu PRIVATE cxx_std_23)
 
-target_compile_options(dnse_client PRIVATE
+target_compile_options(kimngwu PRIVATE
     -Wall -Wextra -Wpedantic
     -Wconversion -Wsign-conversion -Wshadow
 )

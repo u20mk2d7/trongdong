@@ -20,3 +20,17 @@ The Hot Path (Strategy Thread): The parsed market data (e.g., best bid/ask, trad
 Decision: QuantEngine evaluates the mathematical model (e.g., spread arbitrage, moving averages, order book imbalance) using fixed-point arithmetic.
 
 Execution: If a threshold is met, an order packet is built and fired back out through the gateway.
+
+
+[Gateway / Connector]
+   ├── owns: net::io_context ioc{1}
+   ├── owns: ssl::context sslCtx
+   ├── owns: SPSCQueue ringBuffer
+   └── spawns: WsClient("stream.binance.com", "9443", "/ws/btcusdt@trade", onMessageCallback)
+                  │
+                  ▼ (inside WsClient::run())
+            1. DNS Resolve
+            2. TCP Connect (+ TCP_NODELAY)
+            3. TLS Handshake (with SNI)
+            4. WebSocket Upgrade (no compression)
+            5. Read Loop ──► calls onMessage(std::span<const std::byte>)

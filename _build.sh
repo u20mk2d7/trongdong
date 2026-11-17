@@ -2,7 +2,7 @@
 set -euo pipefail
 
 echo "=== Cleaning previous build ==="
-rm -rf build
+#rm -rf build
 
 echo "=== Formatting source code ==="
 find ./ -type f \( \
@@ -24,4 +24,4 @@ echo "=== Compiling Project ==="
 cmake --build --preset conan-release --parallel
 
 echo "=== Running Binary ==="
-./build/Release/kimngwu/dnse_client
+./build/Release/kimngwu/kimngwu

@@ -1,5 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.30)
-project(stock LANGUAGES C CXX)
+project(kimngwu LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
