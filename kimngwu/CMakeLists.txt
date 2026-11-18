@@ -11,7 +11,7 @@ find_package(flatbuffers REQUIRED)
 
 add_executable(kimngwu
     main.cpp
-    gateway/wsclient.cpp
+    network/wsclient.cpp
     gateway/connector.cpp
 )
 

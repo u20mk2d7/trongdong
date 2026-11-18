@@ -2,7 +2,7 @@
 set -euo pipefail
 
 echo "=== Cleaning previous build ==="
-#rm -rf build
+rm -rf build
 
 echo "=== Formatting source code ==="
 find ./ -type f \( \
