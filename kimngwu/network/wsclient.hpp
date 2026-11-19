@@ -39,11 +39,7 @@ public:
   // Callback passes raw bytes directly from the read buffer (zero-copy view)
   using MessageCallback = std::function<void(std::span<const std::byte>)>;
 
-  static constexpr std::size_t RX_BUFFER_SIZE = 64 * 1024;
-
-  using Buffer = boost::beast::flat_static_buffer<RX_BUFFER_SIZE>;
-
-public:
+  /* =================================== */
   WsClient(boost::asio::io_context &ioc, boost::asio::ssl::context &sslContext,
            std::string host, std::string port, MessageCallback onMessage);
 
@@ -57,12 +53,14 @@ public:
 
   // Starts the full connection + read loop coroutine
   boost::asio::awaitable<void> run();
-  void resetStream();
+  void reset();
 
 private:
   std::string Host_;
   std::string Port_;
-  std::string Target_;
+  std::string ApiKey_;
+  std::string PrivateKey_;
+
   std::reference_wrapper<boost::asio::ssl::context> SSLContext_;
 
   WebSocketStream Ws_;
@@ -73,6 +71,8 @@ private:
   boost::asio::awaitable<void> connectTCP();
   boost::asio::awaitable<void> handshakeTLS();
   boost::asio::awaitable<void> handshakeWS();
+  boost::asio::awaitable<void> logon();
   boost::asio::awaitable<void> readLoop();
+  std::string signED25519(EVP_PKEY *pkey, std::string &payload);
 };
 } // namespace kimngwu::gateway
