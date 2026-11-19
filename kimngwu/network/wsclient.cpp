@@ -1,33 +1,34 @@
 #include "wsclient.hpp"
 
-#include <chrono>
-#include <string>
-#include <vector>
-
 #include <boost/asio.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/ssl/error.hpp>
 #include <boost/asio/use_awaitable.hpp>
 #include <boost/beast.hpp>
+#include <boost/beast/core.hpp>
 #include <boost/beast/core/detail/base64.hpp>
 #include <boost/beast/core/error.hpp>
 #include <boost/beast/core/stream_traits.hpp>
 #include <boost/beast/ssl.hpp>
+#include <boost/beast/websocket.hpp>
 #include <boost/beast/websocket/option.hpp>
 #include <boost/beast/websocket/ssl.hpp>
 #include <boost/json.hpp>
-
+#include <chrono>
+#include <filesystem>
+#include <memory>
 #include <openssl/bio.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/tls1.h>
-
 #include <simdjson.h>
-
-namespace kimngwu::gateway {
+#include <stdexcept>
+#include <string>
+#include <vector>
+namespace kimngwu::network {
 
 WsClient::WsClient(boost::asio::io_context &ioc,
                    boost::asio::ssl::context &sslContext, std::string host,
@@ -105,12 +106,20 @@ boost::asio::awaitable<void> WsClient::handshakeWS() {
 }
 
 boost::asio::awaitable<void> WsClient::logon() {
+  if (!PrivateKey_) {
+    throw std::runtime_error("Private key is not loaded");
+  }
+
   const auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                         std::chrono::steady_clock::now().time_since_epoch())
+                         std::chrono::system_clock::now().time_since_epoch())
                          .count();
-  std::string payLoadToSign =
+
+  const std::string payload =
       "apiKey=" + ApiKey_ + "&timestamp=" + std::to_string(nowMs);
-  std::string signature = signED25519(PrivateKey_, payLoadToSign);
+
+  const std::string signature = signED25519(PrivateKey_.get(), payload);
+
+  // Build and send Binance session.logon JSON here.
 }
 
 boost::asio::awaitable<void> WsClient::readLoop() {}
@@ -123,33 +132,116 @@ void WsClient::reset() {
   // Ws_ = WebSocketStream(Ws_.get_executor(), SSLContext_.get());
 }
 
-std::string WsClient::signED25519(EVP_PKEY *pkey, std::string &payload) {
-  EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
-  EVP_DigestSignInit(mdctx, nullptr, nullptr, nullptr, pkey);
+boost::asio::awaitable<boost::json::value>
+WsClient::sendRequest(const boost::json::object& request)
+{
+    const std::string message = boost::json::serialize(request);
 
-  size_t sigLen = 64; // Ed25519 signatures are always 64 bytes
-  std::vector<unsigned char> sig(sigLen);
+    ws_.text(true);
 
-  EVP_DigestSign(mdctx, sig.data(), &sigLen,
-                 reinterpret_cast<const unsigned char *>(payload.data()),
-                 payload.size());
-  EVP_MD_CTX_free(mdctx);
+    co_await ws_.async_write(
+        boost::asio::buffer(message),
+        boost::asio::use_awaitable
+    );
 
-  // Base64 encode using Boost.Beast's built-in utility
-  std::string encoded;
-  encoded.resize(boost::beast::detail::base64::encoded_size(sigLen));
-  boost::beast::detail::base64::encode(encoded.data(), sig.data(), sigLen);
-  return encoded;
+    boost::beast::flat_buffer buffer;
+
+    co_await ws_.async_read(
+        buffer,
+        boost::asio::use_awaitable
+    );
+
+    const std::string response =
+        boost::beast::buffers_to_string(buffer.data());
+
+    boost::system::error_code ec;
+
+    auto result = boost::json::parse(response, ec);
+
+    if (ec) {
+        throw std::runtime_error(
+            "Invalid Binance JSON response: " + ec.message()
+        );
+    }
+
+    co_return result;
 }
 
-EVP_PKEY *load_private_key_from_pem(const std::string &pem_str) {
-  BIO *bio = BIO_new_mem_buf(pem_str.data(), static_cast<int>(pem_str.size()));
-  if (!bio) {
-    return nullptr;
+
+std::string WsClient::signED25519(EVP_PKEY *privateKey,
+                                  const std::string &payload) {
+  EVP_MD_CTX *rawCtx = EVP_MD_CTX_new();
+
+  if (!rawCtx) {
+    throw std::runtime_error("Cannot create EVP_MD_CTX");
   }
 
-  EVP_PKEY *pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
-  BIO_free(bio);
-  return pkey; // Caller owns pkey; free with EVP_PKEY_free(pkey)
+  std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> ctx(rawCtx,
+                                                              EVP_MD_CTX_free);
+
+  if (EVP_DigestSignInit(ctx.get(), nullptr, nullptr, nullptr, privateKey) <=
+      0) {
+    throw std::runtime_error("Ed25519 signing initialization failed");
+  }
+
+  size_t signatureLength = 0;
+
+  if (EVP_DigestSign(ctx.get(), nullptr, &signatureLength,
+                     reinterpret_cast<const unsigned char *>(payload.data()),
+                     payload.size()) <= 0) {
+    throw std::runtime_error("Cannot determine signature length");
+  }
+
+  std::vector<unsigned char> signature(signatureLength);
+
+  if (EVP_DigestSign(ctx.get(), signature.data(), &signatureLength,
+                     reinterpret_cast<const unsigned char *>(payload.data()),
+                     payload.size()) <= 0) {
+    throw std::runtime_error("Ed25519 signing failed");
+  }
+
+  static constexpr char hex[] = "0123456789abcdef";
+
+  std::string result(4 * ((signatureLength + 2) / 3) + 1, '\0');
+
+  int encodedLength =
+      EVP_EncodeBlock(reinterpret_cast<unsigned char *>(result.data()),
+                      signature.data(), static_cast<int>(signatureLength));
+
+  if (encodedLength < 0) {
+    throw std::runtime_error("Base64 encoding failed");
+  }
+
+  result.resize(encodedLength);
+
+  return result;
 }
-} // namespace kimngwu::gateway
+
+WsClient::EVP_PKEY_ptr WsClient::loadPrivateKey(const std::string &filePath) {
+  using BIO_ptr = std::unique_ptr<BIO, decltype(&BIO_free)>;
+
+  BIO_ptr bio(BIO_new_file(filePath.c_str(), "r"), BIO_free);
+
+  if (!bio) {
+    throw std::runtime_error("Cannot open private key: " + filePath);
+  }
+
+  EVP_PKEY *rawKey =
+      PEM_read_bio_PrivateKey(bio.get(), nullptr, nullptr, nullptr);
+
+  if (!rawKey) {
+    throw std::runtime_error("Cannot read private key");
+  }
+
+  EVP_PKEY_ptr key(rawKey, EVP_PKEY_free);
+
+  if (EVP_PKEY_base_id(key.get()) != EVP_PKEY_ED25519) {
+    throw std::runtime_error("Expected an Ed25519 private key");
+  }
+
+  return key;
+}
+
+
+
+} // namespace kimngwu::network

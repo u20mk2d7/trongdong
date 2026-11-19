@@ -783,9 +783,9 @@ inline id performOptionalSelector(id obj, SEL sel) {
 
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable                                                        \
-                : 4180) // We attempt to stream a function (address) by const&,
-                        // which MSVC complains about but is harmless
+#pragma warning(                                                               \
+    disable : 4180) // We attempt to stream a function (address) by const&,
+                    // which MSVC complains about but is harmless
 #endif
 
 // We need a dummy global operator<< so we can bring it into Catch namespace
@@ -1308,8 +1308,8 @@ struct StringMaker<
 #pragma warning(disable : 4018) // more "signed/unsigned mismatch"
 #pragma warning(disable : 4312) // Converting int to T* using reinterpret_cast
                                 // (issue on x64 platform)
-#pragma warning(disable                                                        \
-                : 4180) // qualifier applied to function type has no meaning
+#pragma warning(                                                               \
+    disable : 4180) // qualifier applied to function type has no meaning
 #endif
 
 namespace Catch {
@@ -3541,9 +3541,9 @@ namespace Catch {
 template <typename T> class Option {
 public:
   Option() : nullableValue(nullptr) {}
-  Option(T const &_value) : nullableValue(new (storage) T(_value)) {}
+  Option(T const &_value) : nullableValue(new(storage) T(_value)) {}
   Option(Option const &_other)
-      : nullableValue(_other ? new (storage) T(*_other) : nullptr) {}
+      : nullableValue(_other ? new(storage) T(*_other) : nullptr) {}
 
   ~Option() { reset(); }
 
@@ -9562,9 +9562,9 @@ int Session::runInternal() {
     // Note that on unices only the lower 8 bits are usually used, clamping
     // the return value to 255 prevents false negative when some multiple
     // of 256 tests has failed
-    return (std::min)(MaxExitCode,
-                      (std::max)(totals.error,
-                                 static_cast<int>(totals.assertions.failed)));
+    return (std::min)(
+        MaxExitCode,
+        (std::max)(totals.error, static_cast<int>(totals.assertions.failed)));
   } catch (std::exception &ex) {
     Catch::cerr() << ex.what() << std::endl;
     return MaxExitCode;

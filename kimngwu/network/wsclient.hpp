@@ -8,12 +8,16 @@
 #include <boost/beast.hpp>
 #include <boost/beast/core/tcp_stream.hpp>
 #include <boost/beast/websocket/stream.hpp>
-
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <openssl/bio.h>
+#include <openssl/evp.h>
+#include <openssl/pem.h>
 #include <span>
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 /**
  * WsClient (Network Transport Layer): Purely handles the WebSocket
@@ -22,7 +26,7 @@
  * need to know anything about Binance JSON or trading logic.
  */
 
-namespace kimngwu::gateway {
+namespace kimngwu::network {
 
 class WsClient : public std::enable_shared_from_this<WsClient> {
 
@@ -38,6 +42,8 @@ public:
 
   // Callback passes raw bytes directly from the read buffer (zero-copy view)
   using MessageCallback = std::function<void(std::span<const std::byte>)>;
+
+  using EVP_PKEY_ptr = std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)>;
 
   /* =================================== */
   WsClient(boost::asio::io_context &ioc, boost::asio::ssl::context &sslContext,
@@ -59,7 +65,7 @@ private:
   std::string Host_;
   std::string Port_;
   std::string ApiKey_;
-  std::string PrivateKey_;
+  EVP_PKEY_ptr PrivateKey_{nullptr, EVP_PKEY_free};
 
   std::reference_wrapper<boost::asio::ssl::context> SSLContext_;
 
@@ -73,6 +79,10 @@ private:
   boost::asio::awaitable<void> handshakeWS();
   boost::asio::awaitable<void> logon();
   boost::asio::awaitable<void> readLoop();
-  std::string signED25519(EVP_PKEY *pkey, std::string &payload);
+  boost::asio::awaitable<boost::json::value>
+  sendRequest(const boost::json::object &request);
+
+  std::string signED25519(EVP_PKEY *pkey, const std::string &payload);
+  EVP_PKEY_ptr loadPrivateKey(const std::string &filePath);
 };
-} // namespace kimngwu::gateway
+} // namespace kimngwu::network

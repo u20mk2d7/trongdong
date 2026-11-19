@@ -11,4 +11,5 @@
 namespace kimngwu::gateway {
 
 class Connector {};
+
 } // namespace kimngwu::gateway
