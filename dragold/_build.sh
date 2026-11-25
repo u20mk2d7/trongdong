@@ -24,4 +24,4 @@ echo "=== Compiling Project ==="
 cmake --build --preset conan-release --parallel
 
 echo "=== Running Binary ==="
-./build/Release/kimngwu/kimngwu
+./build/Release/dragold/dragold

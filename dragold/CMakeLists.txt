@@ -1,5 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.30)
-project(kimngwu LANGUAGES C CXX)
+project(dragold LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -119,7 +119,7 @@ endif()
 add_library(bs_hot_path_base INTERFACE)
 target_link_libraries(bs_hot_path_base INTERFACE bs_compiler_flags)
 
-add_subdirectory(kimngwu)
+add_subdirectory(src)
 
 if(TARGET ${PROJECT_NAME})
 	set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ON) # Recommended OFF for HFT
